@@ -1,0 +1,33 @@
+[project]
+name = "empresa"
+version = "0.1.0"
+description = "Aplicação de referência: integração entre PostgreSQL e Python com Psycopg 3 (esquema EMPRESA)"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi[standard]>=0.165.0",
+    "psycopg[binary,pool]>=3.3.9",
+    "pydantic>=2.14.4",
+]
+
+[project.scripts]
+empresa = "empresa.cli:main"
+
+[build-system]
+requires = ["uv_build>=0.11.32,<0.12.0"]
+build-backend = "uv_build"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.2.0",
+    "ruff>=0.17.6",
+]
