@@ -1,4 +1,4 @@
 DELETE FROM trabalha_em
- WHERE fcpf = %(cpf)s
-   AND pnr = %(projnumero)s
-RETURNING fcpf
+ WHERE funcionario_id = %(funcionario_id)s
+   AND projeto_id = %(projeto_id)s
+RETURNING funcionario_id

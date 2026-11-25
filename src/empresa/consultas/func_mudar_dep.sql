@@ -1,3 +1,3 @@
 UPDATE funcionario
-   SET dnr = %(dnr)s
- WHERE cpf = %(cpf)s
+   SET departamento_id = %(departamento_id)s
+ WHERE id = %(id)s

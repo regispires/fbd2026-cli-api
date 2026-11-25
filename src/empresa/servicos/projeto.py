@@ -14,33 +14,33 @@ class ProjetoServico:
         with transacao(self.pool) as conn:
             return ProjetoRepositorio(conn).inserir(novo)
 
-    def obter(self, projnumero: int) -> Projeto:
+    def obter(self, id: int) -> Projeto:
         with transacao(self.pool) as conn:
-            proj = ProjetoRepositorio(conn).obter(projnumero)
+            proj = ProjetoRepositorio(conn).obter(id)
         if proj is None:
-            raise NaoEncontrado("projeto", projnumero)
+            raise NaoEncontrado("projeto", id)
         return proj
 
-    def listar(self, dnum: int | None = None) -> list[Projeto]:
+    def listar(self, departamento_id: int | None = None) -> list[Projeto]:
         with transacao(self.pool) as conn:
-            return ProjetoRepositorio(conn).listar(dnum)
+            return ProjetoRepositorio(conn).listar(departamento_id)
 
-    def atualizar(self, projnumero: int, alteracao: ProjetoAlteracao) -> Projeto:
+    def atualizar(self, id: int, alteracao: ProjetoAlteracao) -> Projeto:
         mudancas = alteracao.model_dump(exclude_unset=True)
         if not mudancas:
             raise DadosInvalidos("Informe ao menos um campo para atualizar")
         with transacao(self.pool) as conn:
-            proj = ProjetoRepositorio(conn).atualizar(projnumero, mudancas)
+            proj = ProjetoRepositorio(conn).atualizar(id, mudancas)
         if proj is None:
-            raise NaoEncontrado("projeto", projnumero)
+            raise NaoEncontrado("projeto", id)
         return proj
 
-    def remover(self, projnumero: int) -> None:
+    def remover(self, id: int) -> None:
         try:
             with transacao(self.pool) as conn:
-                if not ProjetoRepositorio(conn).remover(projnumero):
-                    raise NaoEncontrado("projeto", projnumero)
+                if not ProjetoRepositorio(conn).remover(id):
+                    raise NaoEncontrado("projeto", id)
         except ReferenciaInvalida as e:
             raise ReferenciaInvalida(
-                f"Projeto {projnumero} ainda tem funcionários alocados"
+                f"Projeto {id} ainda tem funcionários alocados"
             ) from e.__cause__

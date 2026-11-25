@@ -17,29 +17,31 @@ class ProjetoRepositorio:
         with self.conn.cursor(row_factory=self.rf) as cur:
             return cur.execute(sql_de("proj_inserir"), p.model_dump()).fetchone()
 
-    def obter(self, projnumero: int) -> Projeto | None:
+    def obter(self, id: int) -> Projeto | None:
         with self.conn.cursor(row_factory=self.rf) as cur:
-            return cur.execute(sql_de("proj_por_numero"), {"projnumero": projnumero}).fetchone()
+            return cur.execute(sql_de("proj_por_id"), {"id": id}).fetchone()
 
-    def listar(self, dnum: int | None = None) -> list[Projeto]:
+    def listar(self, departamento_id: int | None = None) -> list[Projeto]:
         with self.conn.cursor(row_factory=self.rf) as cur:
-            if dnum is None:
+            if departamento_id is None:
                 return cur.execute(sql_de("proj_listar")).fetchall()
-            return cur.execute(sql_de("proj_listar_por_dep"), {"dnum": dnum}).fetchall()
+            return cur.execute(
+                sql_de("proj_listar_por_dep"), {"departamento_id": departamento_id}
+            ).fetchall()
 
-    def atualizar(self, projnumero: int, mudancas: dict) -> Projeto | None:
+    def atualizar(self, id: int, mudancas: dict) -> Projeto | None:
         if not mudancas or mudancas.keys() - EDITAVEIS:
             raise DadosInvalidos("Campos inválidos para atualização")
         sets = sql.SQL(", ").join(
             sql.SQL("{} = {}").format(sql.Identifier(c), sql.Placeholder(c)) for c in mudancas
         )
         q = sql.SQL(
-            "UPDATE projeto SET {} WHERE projnumero = %(projnumero)s"
-            " RETURNING projnumero, projnome, projlocal, dnum"
+            "UPDATE projeto SET {} WHERE id = %(id)s"
+            " RETURNING id, projnome, projlocal, departamento_id"
         ).format(sets)
         with self.conn.cursor(row_factory=self.rf) as cur:
-            return cur.execute(q, {**mudancas, "projnumero": projnumero}).fetchone()
+            return cur.execute(q, {**mudancas, "id": id}).fetchone()
 
-    def remover(self, projnumero: int) -> bool:
-        cur = self.conn.execute(sql_de("proj_remover"), {"projnumero": projnumero})
+    def remover(self, id: int) -> bool:
+        cur = self.conn.execute(sql_de("proj_remover"), {"id": id})
         return cur.fetchone() is not None

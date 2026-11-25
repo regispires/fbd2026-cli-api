@@ -1,5 +1,5 @@
-SELECT cpf, pnome, minicial, unome, datanasc,
-       endereco, sexo, salario, cpf_supervisor,
-       dnr
+SELECT id, cpf, pnome, minicial, unome, datanasc,
+       endereco, sexo, salario, supervisor_id,
+       departamento_id
   FROM funcionario
  WHERE cpf = %(cpf)s

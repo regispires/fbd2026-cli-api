@@ -4,17 +4,12 @@ from psycopg import Connection, sql
 from psycopg.rows import class_row
 
 from empresa.consultas import sql_de
-from empresa.dto import (
-    Funcionario,
-    FuncionarioAlteracao,
-    FuncionarioNovo,
-    FuncionarioResumo,
-)
+from empresa.dto import Funcionario, FuncionarioNovo, FuncionarioResumo
 from empresa.erros import DadosInvalidos
 from empresa.validacao import escapar_like
 
-# lista branca de colunas atualizáveis: os campos do modelo de alteração
-EDITAVEIS = frozenset(FuncionarioAlteracao.model_fields)
+# lista branca de colunas atualizáveis
+EDITAVEIS = frozenset({"endereco", "salario", "departamento_id", "supervisor_id"})
 
 
 class FuncionarioRepositorio:
@@ -22,24 +17,34 @@ class FuncionarioRepositorio:
         self.conn = conn
         self.rf = class_row(Funcionario)
 
-    def inserir(self, f: FuncionarioNovo) -> Funcionario:
+    def inserir(self, f: FuncionarioNovo, supervisor_id: int | None) -> Funcionario:
+        params = f.model_dump(exclude={"supervisor"}) | {"supervisor_id": supervisor_id}
         with self.conn.cursor(row_factory=self.rf) as cur:
-            cur.execute(sql_de("func_inserir"), f.model_dump())
+            cur.execute(sql_de("func_inserir"), params)
             return cur.fetchone()
 
-    def obter(self, cpf: str) -> Funcionario | None:
+    def obter(self, id: int) -> Funcionario | None:
+        with self.conn.cursor(row_factory=self.rf) as cur:
+            cur.execute(sql_de("func_por_id"), {"id": id})
+            return cur.fetchone()
+
+    def obter_por_cpf(self, cpf: str) -> Funcionario | None:
         with self.conn.cursor(row_factory=self.rf) as cur:
             cur.execute(sql_de("func_por_cpf"), {"cpf": cpf})
             return cur.fetchone()
 
-    def bloquear(self, cpf: str) -> bool:
-        cur = self.conn.execute(sql_de("func_bloquear"), {"cpf": cpf})
+    def id_por_cpf(self, cpf: str) -> int | None:
+        linha = self.conn.execute(sql_de("func_id_por_cpf"), {"cpf": cpf}).fetchone()
+        return None if linha is None else linha[0]
+
+    def bloquear(self, id: int) -> bool:
+        cur = self.conn.execute(sql_de("func_bloquear"), {"id": id})
         return cur.fetchone() is not None
 
     def buscar(
         self,
         *,
-        dnr: int | None = None,
+        departamento_id: int | None = None,
         nome: str | None = None,
         salario_min: Decimal | None = None,
         limite: int = 20,
@@ -48,9 +53,9 @@ class FuncionarioRepositorio:
         """Filtros opcionais compostos com sql.SQL; valores sempre como parâmetros."""
         conds = []
         p = {"lim": limite, "off": offset}
-        if dnr is not None:
-            conds.append(sql.SQL("dnumero = %(dnr)s"))
-            p["dnr"] = dnr
+        if departamento_id is not None:
+            conds.append(sql.SQL("departamento_id = %(dep)s"))
+            p["dep"] = departamento_id
         if salario_min is not None:
             conds.append(sql.SQL("salario >= %(smin)s"))
             p["smin"] = salario_min
@@ -59,31 +64,33 @@ class FuncionarioRepositorio:
             p["nome"] = "%" + escapar_like(nome) + "%"
         where = sql.SQL(" AND ").join(conds) if conds else sql.SQL("TRUE")
         q = sql.SQL(
-            "SELECT cpf, nome, dnumero, dnome, salario"
+            "SELECT id, cpf, nome, departamento_id, dnome, salario"
             "  FROM vw_funcionario_depto WHERE {}"
-            " ORDER BY nome, cpf LIMIT %(lim)s OFFSET %(off)s"
+            " ORDER BY nome, id LIMIT %(lim)s OFFSET %(off)s"
         ).format(where)
         with self.conn.cursor(row_factory=class_row(FuncionarioResumo)) as cur:
             return cur.execute(q, p).fetchall()
 
-    def atualizar(self, cpf: str, mudancas: dict) -> Funcionario | None:
+    def atualizar(self, id: int, mudancas: dict) -> Funcionario | None:
         if not mudancas or mudancas.keys() - EDITAVEIS:
             raise DadosInvalidos("Campos inválidos para atualização")
         sets = sql.SQL(", ").join(
             sql.SQL("{} = {}").format(sql.Identifier(c), sql.Placeholder(c)) for c in mudancas
         )
         q = sql.SQL(
-            "UPDATE funcionario SET {} WHERE cpf = %(cpf)s"
-            " RETURNING cpf, pnome, minicial, unome, datanasc, endereco,"
-            " sexo, salario, cpf_supervisor, dnr"
+            "UPDATE funcionario SET {} WHERE id = %(id)s"
+            " RETURNING id, cpf, pnome, minicial, unome, datanasc, endereco,"
+            " sexo, salario, supervisor_id, departamento_id"
         ).format(sets)
         with self.conn.cursor(row_factory=self.rf) as cur:
-            return cur.execute(q, {**mudancas, "cpf": cpf}).fetchone()
+            return cur.execute(q, {**mudancas, "id": id}).fetchone()
 
-    def mudar_departamento(self, cpf: str, dnr: int) -> bool:
-        cur = self.conn.execute(sql_de("func_mudar_dep"), {"cpf": cpf, "dnr": dnr})
+    def mudar_departamento(self, id: int, departamento_id: int) -> bool:
+        cur = self.conn.execute(
+            sql_de("func_mudar_dep"), {"id": id, "departamento_id": departamento_id}
+        )
         return cur.rowcount == 1
 
-    def remover(self, cpf: str) -> bool:
-        cur = self.conn.execute(sql_de("func_remover"), {"cpf": cpf})
+    def remover(self, id: int) -> bool:
+        cur = self.conn.execute(sql_de("func_remover"), {"id": id})
         return cur.fetchone() is not None

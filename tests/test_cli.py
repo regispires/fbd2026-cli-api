@@ -9,6 +9,18 @@ def test_listar_departamentos(banco_teste, dados, capsys):
     assert "Pesquisa" in saida and "Administração" in saida
 
 
+@pytest.mark.parametrize("ref", [["--id", "2"], ["--cpf", "333.445.555-87"]])
+def test_obter_funcionario_por_id_ou_cpf(banco_teste, dados, capsys, ref):
+    main(["funcionario", "obter", *ref])
+    assert "Fernando" in capsys.readouterr().out
+
+
+def test_relatorio_equipes(banco_teste, dados, capsys):
+    main(["relatorio", "equipes", "--max-func", "0"])
+    saida = capsys.readouterr().out
+    assert "Portal do Cliente" in saida and "ProdutoX" not in saida
+
+
 def test_erro_de_dominio_sai_com_codigo_1(banco_teste, dados):
     with pytest.raises(SystemExit) as exc:
         main(["alocacao", "criar", "--cpf", "12345678966", "--projeto", "3", "--horas", "1"])
@@ -36,7 +48,15 @@ def test_validacao_lista_erros_em_portugues(banco_teste, dados):
     assert "salario: deve ser maior que 0" in str(exc.value.code)
 
 
-def test_uso_incorreto_sai_com_codigo_2():
+@pytest.mark.parametrize(
+    "argv",
+    [
+        ["funcionario"],
+        ["funcionario", "obter"],
+        ["funcionario", "obter", "--id", "1", "--cpf", "12345678966"],
+    ],
+)
+def test_uso_incorreto_sai_com_codigo_2(argv):
     with pytest.raises(SystemExit) as exc:
-        main(["funcionario"])
+        main(argv)
     assert exc.value.code == 2

@@ -1,3 +1,3 @@
 DELETE FROM departamento
- WHERE dnumero = %(dnumero)s
-RETURNING dnumero
+ WHERE id = %(id)s
+RETURNING id

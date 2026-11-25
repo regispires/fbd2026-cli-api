@@ -1,9 +1,9 @@
 from psycopg_pool import ConnectionPool
 
-from empresa.dto import Departamento, DepartamentoAlteracao, DepartamentoNovo
+from empresa.dto import Departamento, DepartamentoAlteracao, DepartamentoNovo, FuncionarioRef
 from empresa.erros import NaoEncontrado, ReferenciaInvalida
 from empresa.repositorios import DepartamentoRepositorio, FuncionarioRepositorio
-from empresa.servicos.base import transacao
+from empresa.servicos.base import id_funcionario, transacao
 
 
 class DepartamentoServico:
@@ -14,42 +14,40 @@ class DepartamentoServico:
         with transacao(self.pool) as conn:
             return DepartamentoRepositorio(conn).inserir(novo)
 
-    def obter(self, dnumero: int) -> Departamento:
+    def obter(self, id: int) -> Departamento:
         with transacao(self.pool) as conn:
-            dep = DepartamentoRepositorio(conn).obter(dnumero)
+            dep = DepartamentoRepositorio(conn).obter(id)
         if dep is None:
-            raise NaoEncontrado("departamento", dnumero)
+            raise NaoEncontrado("departamento", id)
         return dep
 
     def listar(self) -> list[Departamento]:
         with transacao(self.pool) as conn:
             return DepartamentoRepositorio(conn).listar()
 
-    def renomear(self, dnumero: int, alteracao: DepartamentoAlteracao) -> Departamento:
+    def renomear(self, id: int, alteracao: DepartamentoAlteracao) -> Departamento:
         with transacao(self.pool) as conn:
-            dep = DepartamentoRepositorio(conn).renomear(dnumero, alteracao.dnome)
+            dep = DepartamentoRepositorio(conn).renomear(id, alteracao.dnome)
         if dep is None:
-            raise NaoEncontrado("departamento", dnumero)
+            raise NaoEncontrado("departamento", id)
         return dep
 
-    def remover(self, dnumero: int) -> None:
+    def remover(self, id: int) -> None:
         try:
             with transacao(self.pool) as conn:
-                if not DepartamentoRepositorio(conn).remover(dnumero):
-                    raise NaoEncontrado("departamento", dnumero)
+                if not DepartamentoRepositorio(conn).remover(id):
+                    raise NaoEncontrado("departamento", id)
         except ReferenciaInvalida as e:
             raise ReferenciaInvalida(
-                f"Departamento {dnumero} ainda tem funcionários ou projetos"
+                f"Departamento {id} ainda tem funcionários ou projetos"
             ) from e.__cause__
 
-    def trocar_gerente(self, dnumero: int, cpf: str) -> Departamento:
+    def trocar_gerente(self, id: int, gerente: FuncionarioRef) -> Departamento:
         """Operação com vários comandos: move o funcionário e o torna gerente."""
         with transacao(self.pool) as conn:
-            funcs = FuncionarioRepositorio(conn)
+            fid = id_funcionario(conn, gerente)
             deps = DepartamentoRepositorio(conn)
-            if funcs.obter(cpf) is None:
-                raise NaoEncontrado("funcionário", cpf)
-            if not deps.definir_gerente(dnumero, cpf):
-                raise NaoEncontrado("departamento", dnumero)
-            funcs.mudar_departamento(cpf, dnumero)
-            return deps.obter(dnumero)
+            if not deps.definir_gerente(id, fid):
+                raise NaoEncontrado("departamento", id)
+            FuncionarioRepositorio(conn).mudar_departamento(fid, id)
+            return deps.obter(id)

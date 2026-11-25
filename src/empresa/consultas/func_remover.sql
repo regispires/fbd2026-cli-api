@@ -1,3 +1,3 @@
 DELETE FROM funcionario
- WHERE cpf = %(cpf)s
-RETURNING cpf
+ WHERE id = %(id)s
+RETURNING id

@@ -1,3 +1,3 @@
-SELECT projnumero, projnome, projlocal, dnum
+SELECT id, projnome, projlocal, departamento_id
   FROM projeto
- ORDER BY projnumero
+ ORDER BY id

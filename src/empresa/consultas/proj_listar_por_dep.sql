@@ -1,4 +1,4 @@
-SELECT projnumero, projnome, projlocal, dnum
+SELECT id, projnome, projlocal, departamento_id
   FROM projeto
- WHERE dnum = %(dnum)s
- ORDER BY projnumero
+ WHERE departamento_id = %(departamento_id)s
+ ORDER BY id

@@ -27,5 +27,6 @@ def mensagens(erros) -> list[str]:
         campo = ".".join(map(str, err["loc"]))
         modelo = MSG.get(err["type"], err["msg"])
         texto = modelo.format(**err.get("ctx", {})).replace("' or '", "' ou '")
-        saida.append(campo + ": " + texto)
+        # erro do modelo inteiro (model_validator) não tem campo
+        saida.append(campo + ": " + texto if campo else texto)
     return saida

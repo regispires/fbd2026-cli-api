@@ -1,4 +1,4 @@
-# fbd2026-simples
+# fbd2026-cli-api
 
 Aplicação de referência do módulo **Integração entre PostgreSQL e aplicações Python**.
 Gerencia funcionários, departamentos, projetos e alocações do esquema EMPRESA, com
@@ -14,8 +14,8 @@ sobre o mesmo núcleo: linha de comando (argparse) e web (FastAPI, opcional).
 ## Instalação
 
 ```bash
-git clone https://github.com/regispires/fbd2026-simples.git
-cd fbd2026-simples
+git clone https://github.com/regispires/fbd2026-cli-api.git
+cd fbd2026-cli-api
 uv sync --locked
 cp .env.example .env
 ```
@@ -49,25 +49,28 @@ defina `UV_ENV_FILE=.env` na sessão do terminal.
 uv run --env-file .env empresa --help
 ```
 
-Funcionários (CRUD, filtros e paginação no banco):
+Funcionários (CRUD, filtros e paginação no banco). Todo comando que aponta para um funcionário
+aceita `--id` ou `--cpf`, um dos dois:
 
 ```bash
 uv run --env-file .env empresa funcionario listar --dep 5 --nome silva --salario-min 30000 --limite 20 --pagina 1
-uv run --env-file .env empresa funcionario obter 33344555587
-uv run --env-file .env empresa funcionario criar --cpf 529.982.247-25 --pnome Ana --unome Lima --salario "4.200,50" --dep 5 --sexo F
-uv run --env-file .env empresa funcionario atualizar 52998224725 --salario 4500 --endereco "Rua A, 10"
-uv run --env-file .env empresa funcionario remover 52998224725
+uv run --env-file .env empresa funcionario obter --id 2
+uv run --env-file .env empresa funcionario obter --cpf 333.445.555-87
+uv run --env-file .env empresa funcionario criar --cpf 529.982.247-25 --pnome Ana --unome Lima --salario "4.200,50" --dep 5 --sexo F --supervisor-cpf 33344555587
+uv run --env-file .env empresa funcionario atualizar --id 9 --salario 4500 --endereco "Rua A, 10"
+uv run --env-file .env empresa funcionario remover --cpf 52998224725
 ```
 
-Departamentos e projetos:
+Departamentos e projetos são identificados pelo `id` gerado pelo banco:
 
 ```bash
 uv run --env-file .env empresa departamento listar
-uv run --env-file .env empresa departamento criar --numero 6 --nome Logística
-uv run --env-file .env empresa departamento renomear 6 --nome Suprimentos
+uv run --env-file .env empresa departamento criar --nome Logística
+uv run --env-file .env empresa departamento renomear 7 --nome Suprimentos
 uv run --env-file .env empresa departamento trocar-gerente 4 --cpf 99988777767
+uv run --env-file .env empresa departamento trocar-gerente 4 --funcionario-id 3
 uv run --env-file .env empresa projeto criar --nome ProdutoW --local Fortaleza --dep 5
-uv run --env-file .env empresa projeto atualizar 31 --local Quixadá
+uv run --env-file .env empresa projeto atualizar 41 --local Quixadá
 uv run --env-file .env empresa projeto listar --dep 5
 ```
 
@@ -75,11 +78,19 @@ Alocações (operações transacionais):
 
 ```bash
 uv run --env-file .env empresa alocacao criar --cpf 98765432168 --projeto 10 --horas 5
+uv run --env-file .env empresa alocacao criar --funcionario-id 4 --projeto 10 --horas 5
 uv run --env-file .env empresa alocacao equipe --projeto 1 --arquivo equipe.csv
 uv run --env-file .env empresa alocacao listar --projeto 10
+uv run --env-file .env empresa alocacao remover --funcionario-id 4 --projeto 10
 ```
 
-O arquivo da equipe tem uma linha `cpf;horas` por funcionário, por exemplo `52998224725;3,5`.
+O arquivo da equipe é um CSV com `;` e cabeçalho `cpf;horas` ou `id;horas`, por exemplo:
+
+```text
+cpf;horas
+52998224725;3,5
+12345678966;2
+```
 
 Relatórios (consultas de negócio):
 
@@ -87,7 +98,9 @@ Relatórios (consultas de negócio):
 uv run --env-file .env empresa relatorio departamentos
 uv run --env-file .env empresa relatorio ranking --dep 4 5
 uv run --env-file .env empresa relatorio todos-projetos
-uv run --env-file .env empresa relatorio supervisao 88866555576
+uv run --env-file .env empresa relatorio equipes --max-func 2
+uv run --env-file .env empresa relatorio dependentes --min 0
+uv run --env-file .env empresa relatorio supervisao --cpf 88866555576
 uv run --env-file .env empresa relatorio exportar funcionarios.csv
 ```
 
@@ -99,15 +112,18 @@ Códigos de saída: `0` sucesso, `1` erro de validação ou de regra, `2` uso in
 Exemplo de saída esperada:
 
 ```text
-$ uv run --env-file .env empresa alocacao criar --cpf 12345678966 --projeto 3 --horas 12
-Erro: Carga semanal de 12345678966 passaria de 40 h (atual: 40.0 h)
+$ uv run --env-file .env empresa alocacao criar --cpf 12345678966 --projeto 3 --horas 1
+Erro: Carga semanal do funcionário (CPF 12345678966) passaria de 40 h (atual: 40.0 h)
 
-$ uv run --env-file .env empresa funcionario criar --cpf 123 --pnome "" --unome Lima --salario -1 --dep x
-Dados inválidos:
-cpf: CPF deve ter 11 dígitos
-pnome: não pode ficar vazio
-salario: deve ser maior que 0
-dnr: número inteiro inválido
+$ uv run --env-file .env empresa relatorio supervisao --id 8
+Jorge Brito (id 8, CPF 88866555576)
+├── Fernando Wong (id 2, CPF 33344555587)
+│   ├── Joice Leite (id 6, CPF 45345345376)
+│   ├── João Silva (id 1, CPF 12345678966)
+│   └── Ronaldo Lima (id 5, CPF 66688444476)
+└── Jennifer Souza (id 4, CPF 98765432168)
+    ├── Alice Zelaya (id 3, CPF 99988777767)
+    └── André Pereira (id 7, CPF 98798798733)
 ```
 
 ## Execução pela web (opcional)
@@ -121,12 +137,22 @@ A documentação interativa fica em <http://127.0.0.1:8000/docs>. Principais rot
 | Método e rota | Operação |
 |---|---|
 | `POST /funcionarios`, `GET /funcionarios?dep=5&nome=silva&limite=20&pagina=1` | criar, listar com filtros |
-| `GET`, `PATCH`, `DELETE /funcionarios/{cpf}` | obter, atualizar parcialmente, excluir |
-| `POST`, `GET /departamentos`; `GET`, `PATCH`, `DELETE /departamentos/{n}` | CRUD de departamentos |
-| `PUT /departamentos/{n}/gerente` | trocar gerente (transação) |
-| `POST`, `GET /projetos`; `GET`, `PATCH`, `DELETE /projetos/{n}` | CRUD de projetos |
-| `POST /alocacoes`, `DELETE /alocacoes/{cpf}/{n}`, `GET /projetos/{n}/alocacoes` | alocações |
-| `GET /relatorios/departamentos`, `/ranking?dep=4`, `/todos-projetos`, `/supervisao/{cpf}` | relatórios |
+| `GET`, `PATCH`, `DELETE /funcionarios/{id}` | obter, atualizar parcialmente, excluir pelo id |
+| `GET`, `PATCH`, `DELETE /funcionarios/cpf/{cpf}` | as mesmas operações pelo CPF |
+| `POST`, `GET /departamentos`; `GET`, `PATCH`, `DELETE /departamentos/{id}` | CRUD de departamentos |
+| `PUT /departamentos/{id}/gerente` com corpo `{"id": 3}` ou `{"cpf": "..."}` | trocar gerente (transação) |
+| `POST`, `GET /projetos`; `GET`, `PATCH`, `DELETE /projetos/{id}` | CRUD de projetos |
+| `POST /alocacoes`, `GET /projetos/{id}/alocacoes` | alocar, listar alocações do projeto |
+| `DELETE /alocacoes/{funcionario_id}/{projeto_id}`, `DELETE /alocacoes/cpf/{cpf}/{projeto_id}` | desalocar |
+| `GET /relatorios/departamentos`, `/ranking?dep=4`, `/todos-projetos` | relatórios |
+| `GET /relatorios/equipes?max_func=2`, `/relatorios/dependentes?min=0` | relatórios com LEFT JOIN e HAVING |
+| `GET /relatorios/supervisao/{id}`, `/relatorios/supervisao/cpf/{cpf}` | árvore de supervisão |
+
+Onde o corpo aponta para um funcionário, use um objeto com `id` ou `cpf`:
+
+```json
+{"funcionario": {"cpf": "98765432168"}, "projeto_id": 10, "horas": "5"}
+```
 
 Erros de domínio viram status HTTP (404 não encontrado, 409 duplicidade ou referência,
 422 dados inválidos ou regra violada), sempre no formato `{"erros": [...]}` em português.
@@ -146,7 +172,7 @@ de repositório rodam dentro de uma transação revertida ao fim de cada teste.
 ## Estrutura
 
 ```text
-fbd2026-simples/
+fbd2026-cli-api/
 ├── pyproject.toml           # dependências e o comando empresa
 ├── uv.lock                  # versões exatas, versionado
 ├── .python-version          # versão do Python usada pelo uv
@@ -180,7 +206,9 @@ fbd2026-simples/
 | Configuração externa | variáveis `PG*` no `.env`, carregadas com `uv run --env-file` |
 | CRUD de três recursos | funcionário, departamento e projeto (`servicos/`, `repositorios/`) |
 | Validação de entradas | modelos Pydantic em `dto.py` e funções de `validacao.py` |
-| Quatro consultas de negócio | `consultas/rel_*.sql`: resumo por departamento, ranking salarial, divisão relacional, supervisão recursiva |
+| Consultas de negócio | `consultas/rel_*.sql`: resumo por departamento, ranking salarial, divisão relacional, supervisão recursiva, projetos com equipe pequena, funcionários por número de dependentes |
+| Junção externa | `LEFT JOIN` em `vw_resumo_departamento`, `vw_funcionario_depto` (supervisor), `rel_equipes.sql` e `rel_dependentes.sql` |
+| Agrupamento com filtro | `GROUP BY ... HAVING` em `rel_equipes.sql` e `rel_dependentes.sql` |
 | Visão | `vw_resumo_departamento` e `vw_funcionario_depto` |
 | Operação transacional | `AlocacaoServico.alocar` (limite de 40 h com `FOR UPDATE`), `alocar_equipe` (savepoints), `DepartamentoServico.trocar_gerente` |
 | Consultas parametrizadas | todo valor vai como parâmetro; identificadores dinâmicos com `psycopg.sql` |
@@ -195,12 +223,41 @@ fbd2026-simples/
   a transação e aplicam as regras; os repositórios só executam SQL e mapeiam linhas.
 - **Pydantic só na entrada.** As saídas são dataclasses preenchidas por `class_row`, sem revalidar
   o que o banco já garante.
+- **Chaves substitutas.** As tabelas principais (`funcionario`, `departamento`, `projeto`,
+  `dependente`) têm `id BIGINT GENERATED ALWAYS AS IDENTITY` como chave primária, sem
+  significado e gerada pelo banco. As chaves estrangeiras apontam para esses ids. O CPF continua
+  obrigatório e único (`uq_func_cpf`), assim como os nomes de departamento e de projeto, porque
+  a chave natural ainda precisa ser garantida.
+- **Funcionário por id ou por CPF.** O usuário raramente sabe o id de cor, então CLI e API aceitam
+  os dois. `FuncionarioRef` exige exatamente um deles e o serviço converte o CPF no id antes de
+  qualquer outra operação.
+- **Ids do livro preservados.** Os dados de exemplo inserem departamentos (1, 4, 5) e projetos
+  (1, 2, 3, 10, 20, 30) com `OVERRIDING SYSTEM VALUE` e depois ajustam a sequência com `setval`,
+  para os números de Elmasri e Navathe continuarem valendo. O antigo `dnumero` deixou de existir:
+  o id do departamento faz esse papel. Funcionários recebem ids gerados (1 a 8) e as ligações
+  entre eles são feitas pelo CPF no script de carga.
 - **CPF novo e CPF de referência.** O cadastro de funcionário confere os dígitos verificadores.
   Onde o CPF só referencia alguém já cadastrado (alocação, gerente, supervisor), confere-se o
   formato e o banco verifica a existência. Assim os dados do livro, cujos CPFs não têm dígitos
   válidos, continuam utilizáveis.
 - **Restrições nomeadas no banco** são a última barreira; a aplicação antecipa a validação para
   responder com mensagens do domínio.
+
+## Junções externas nos dados de exemplo
+
+Os dados do livro já têm funcionários sem dependentes, sem projeto e sem supervisor. Para que
+departamentos e projetos também tenham casos sem par, o script de carga acrescenta dois registros
+fora do livro: o departamento 6 (Expansão), sem funcionários, projetos nem localização, e o projeto
+40 (Portal do Cliente), sem ninguém alocado. Compare, por exemplo:
+
+```bash
+uv run --env-file .env empresa relatorio equipes --max-func 2   # Portal do Cliente aparece com 0
+uv run --env-file .env empresa relatorio departamentos          # Expansão aparece com zeros
+```
+
+Nas duas consultas novas, `count(coluna_do_lado_opcional)` dá 0 para quem não tem par, enquanto
+`count(*)` daria 1. O filtro sobre o total vai no `HAVING`, que é aplicado depois do agrupamento;
+no `WHERE` ele não funcionaria, porque o `WHERE` roda antes do `GROUP BY`.
 
 ## Limitações conhecidas
 

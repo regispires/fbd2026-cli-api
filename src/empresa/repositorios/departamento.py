@@ -14,23 +14,22 @@ class DepartamentoRepositorio:
         with self.conn.cursor(row_factory=self.rf) as cur:
             return cur.execute(sql_de("dep_inserir"), d.model_dump()).fetchone()
 
-    def obter(self, dnumero: int) -> Departamento | None:
+    def obter(self, id: int) -> Departamento | None:
         with self.conn.cursor(row_factory=self.rf) as cur:
-            return cur.execute(sql_de("dep_por_numero"), {"dnumero": dnumero}).fetchone()
+            return cur.execute(sql_de("dep_por_id"), {"id": id}).fetchone()
 
     def listar(self) -> list[Departamento]:
         with self.conn.cursor(row_factory=self.rf) as cur:
             return cur.execute(sql_de("dep_listar")).fetchall()
 
-    def renomear(self, dnumero: int, dnome: str) -> Departamento | None:
+    def renomear(self, id: int, dnome: str) -> Departamento | None:
         with self.conn.cursor(row_factory=self.rf) as cur:
-            cur.execute(sql_de("dep_renomear"), {"dnumero": dnumero, "dnome": dnome})
-            return cur.fetchone()
+            return cur.execute(sql_de("dep_renomear"), {"id": id, "dnome": dnome}).fetchone()
 
-    def definir_gerente(self, dnumero: int, cpf: str) -> bool:
-        cur = self.conn.execute(sql_de("dep_definir_gerente"), {"dnumero": dnumero, "cpf": cpf})
+    def definir_gerente(self, id: int, gerente_id: int) -> bool:
+        cur = self.conn.execute(sql_de("dep_definir_gerente"), {"id": id, "gerente_id": gerente_id})
         return cur.rowcount == 1
 
-    def remover(self, dnumero: int) -> bool:
-        cur = self.conn.execute(sql_de("dep_remover"), {"dnumero": dnumero})
+    def remover(self, id: int) -> bool:
+        cur = self.conn.execute(sql_de("dep_remover"), {"id": id})
         return cur.fetchone() is not None

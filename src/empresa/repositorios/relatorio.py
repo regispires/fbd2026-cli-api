@@ -5,7 +5,13 @@ from psycopg import Connection
 from psycopg.rows import class_row
 
 from empresa.consultas import sql_de
-from empresa.dto import FuncionarioDepartamento, PosicaoSalarial, ResumoDepartamento
+from empresa.dto import (
+    DependentesFuncionario,
+    EquipeProjeto,
+    FuncionarioDepartamento,
+    PosicaoSalarial,
+    ResumoDepartamento,
+)
 
 
 class RelatorioRepositorio:
@@ -26,8 +32,16 @@ class RelatorioRepositorio:
         with self.conn.cursor(row_factory=class_row(FuncionarioDepartamento)) as cur:
             return cur.execute(sql_de("rel_todos_projetos")).fetchall()
 
-    def supervisao(self, cpf_raiz: str) -> list[tuple[str, str, str | None]]:
-        return self.conn.execute(sql_de("rel_supervisao"), {"raiz": cpf_raiz}).fetchall()
+    def equipes(self, max_func: int) -> list[EquipeProjeto]:
+        with self.conn.cursor(row_factory=class_row(EquipeProjeto)) as cur:
+            return cur.execute(sql_de("rel_equipes"), {"max_func": max_func}).fetchall()
+
+    def dependentes(self, min_dep: int) -> list[DependentesFuncionario]:
+        with self.conn.cursor(row_factory=class_row(DependentesFuncionario)) as cur:
+            return cur.execute(sql_de("rel_dependentes"), {"min_dep": min_dep}).fetchall()
+
+    def supervisao(self, raiz_id: int) -> list[tuple[int, str, str, int | None]]:
+        return self.conn.execute(sql_de("rel_supervisao"), {"raiz": raiz_id}).fetchall()
 
     def exportar_csv(self, arq: TextIO) -> int:
         """Cursor nomeado: lê em lotes, com memória constante. Exige transação."""

@@ -1,3 +1,3 @@
 DELETE FROM projeto
- WHERE projnumero = %(projnumero)s
-RETURNING projnumero
+ WHERE id = %(id)s
+RETURNING id

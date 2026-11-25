@@ -6,6 +6,9 @@ Execução em desenvolvimento:
 
 As rotas são `def` síncronas: o FastAPI as executa em threads e o Psycopg
 síncrono funciona sem mudança. Documentação interativa em /docs.
+
+Um funcionário pode ser acessado pelo id (/funcionarios/{id}) ou pelo CPF
+(/funcionarios/cpf/{cpf}); nos corpos JSON, por {"id": ...} ou {"cpf": ...}.
 """
 
 from contextlib import asynccontextmanager
@@ -15,6 +18,7 @@ from typing import Annotated
 from fastapi import Depends, FastAPI, Query, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from pydantic import ValidationError
 
 from empresa.db import criar_pool
 from empresa.dto import (
@@ -23,12 +27,14 @@ from empresa.dto import (
     Departamento,
     DepartamentoAlteracao,
     DepartamentoNovo,
+    DependentesFuncionario,
+    EquipeProjeto,
     Funcionario,
     FuncionarioAlteracao,
     FuncionarioDepartamento,
     FuncionarioNovo,
+    FuncionarioRef,
     FuncionarioResumo,
-    GerenteNovo,
     PosicaoSalarial,
     Projeto,
     ProjetoAlteracao,
@@ -64,6 +70,15 @@ def servicos(request: Request) -> Servicos:
 
 S = Annotated[Servicos, Depends(servicos)]
 
+
+def por_cpf(cpf: str) -> FuncionarioRef:
+    return FuncionarioRef(cpf=cpf)
+
+
+def por_id(id: int) -> FuncionarioRef:
+    return FuncionarioRef(id=id)
+
+
 # ------------------------------------------------------------------ erros
 STATUS = {
     NaoEncontrado: 404,
@@ -86,6 +101,12 @@ def erro_validacao(request: Request, e: RequestValidationError):
     return JSONResponse({"erros": erros}, status_code=422)
 
 
+@app.exception_handler(ValidationError)
+def erro_modelo(request: Request, e: ValidationError):
+    # modelo montado dentro da rota, como FuncionarioRef(cpf=...) a partir da URL
+    return JSONResponse({"erros": mensagens(e.errors())}, status_code=422)
+
+
 # ------------------------------------------------------------------ funcionários
 @app.post("/funcionarios", status_code=201)
 def criar_funcionario(novo: FuncionarioNovo, s: S) -> Funcionario:
@@ -102,23 +123,38 @@ def listar_funcionarios(
     pagina: Annotated[int, Query(ge=1)] = 1,
 ) -> list[FuncionarioResumo]:
     return s.funcionarios.listar(
-        dnr=dep, nome=nome, salario_min=salario_min, limite=limite, pagina=pagina
+        departamento_id=dep, nome=nome, salario_min=salario_min, limite=limite, pagina=pagina
     )
 
 
-@app.get("/funcionarios/{cpf}")
-def obter_funcionario(cpf: str, s: S) -> Funcionario:
-    return s.funcionarios.obter(cpf)
+@app.get("/funcionarios/{id}")
+def obter_funcionario(id: int, s: S) -> Funcionario:
+    return s.funcionarios.obter(por_id(id))
 
 
-@app.patch("/funcionarios/{cpf}")
-def atualizar_funcionario(cpf: str, alteracao: FuncionarioAlteracao, s: S) -> Funcionario:
-    return s.funcionarios.atualizar(cpf, alteracao)
+@app.get("/funcionarios/cpf/{cpf}")
+def obter_funcionario_por_cpf(cpf: str, s: S) -> Funcionario:
+    return s.funcionarios.obter(por_cpf(cpf))
 
 
-@app.delete("/funcionarios/{cpf}", status_code=204)
-def remover_funcionario(cpf: str, s: S) -> None:
-    s.funcionarios.remover(cpf)
+@app.patch("/funcionarios/{id}")
+def atualizar_funcionario(id: int, alteracao: FuncionarioAlteracao, s: S) -> Funcionario:
+    return s.funcionarios.atualizar(por_id(id), alteracao)
+
+
+@app.patch("/funcionarios/cpf/{cpf}")
+def atualizar_funcionario_por_cpf(cpf: str, alteracao: FuncionarioAlteracao, s: S) -> Funcionario:
+    return s.funcionarios.atualizar(por_cpf(cpf), alteracao)
+
+
+@app.delete("/funcionarios/{id}", status_code=204)
+def remover_funcionario(id: int, s: S) -> None:
+    s.funcionarios.remover(por_id(id))
+
+
+@app.delete("/funcionarios/cpf/{cpf}", status_code=204)
+def remover_funcionario_por_cpf(cpf: str, s: S) -> None:
+    s.funcionarios.remover(por_cpf(cpf))
 
 
 # ------------------------------------------------------------------ departamentos
@@ -132,24 +168,24 @@ def listar_departamentos(s: S) -> list[Departamento]:
     return s.departamentos.listar()
 
 
-@app.get("/departamentos/{dnumero}")
-def obter_departamento(dnumero: int, s: S) -> Departamento:
-    return s.departamentos.obter(dnumero)
+@app.get("/departamentos/{id}")
+def obter_departamento(id: int, s: S) -> Departamento:
+    return s.departamentos.obter(id)
 
 
-@app.patch("/departamentos/{dnumero}")
-def renomear_departamento(dnumero: int, alteracao: DepartamentoAlteracao, s: S) -> Departamento:
-    return s.departamentos.renomear(dnumero, alteracao)
+@app.patch("/departamentos/{id}")
+def renomear_departamento(id: int, alteracao: DepartamentoAlteracao, s: S) -> Departamento:
+    return s.departamentos.renomear(id, alteracao)
 
 
-@app.put("/departamentos/{dnumero}/gerente")
-def trocar_gerente(dnumero: int, gerente: GerenteNovo, s: S) -> Departamento:
-    return s.departamentos.trocar_gerente(dnumero, gerente.cpf)
+@app.put("/departamentos/{id}/gerente")
+def trocar_gerente(id: int, gerente: FuncionarioRef, s: S) -> Departamento:
+    return s.departamentos.trocar_gerente(id, gerente)
 
 
-@app.delete("/departamentos/{dnumero}", status_code=204)
-def remover_departamento(dnumero: int, s: S) -> None:
-    s.departamentos.remover(dnumero)
+@app.delete("/departamentos/{id}", status_code=204)
+def remover_departamento(id: int, s: S) -> None:
+    s.departamentos.remover(id)
 
 
 # ------------------------------------------------------------------ projetos
@@ -163,24 +199,24 @@ def listar_projetos(s: S, dep: int | None = None) -> list[Projeto]:
     return s.projetos.listar(dep)
 
 
-@app.get("/projetos/{projnumero}")
-def obter_projeto(projnumero: int, s: S) -> Projeto:
-    return s.projetos.obter(projnumero)
+@app.get("/projetos/{id}")
+def obter_projeto(id: int, s: S) -> Projeto:
+    return s.projetos.obter(id)
 
 
-@app.patch("/projetos/{projnumero}")
-def atualizar_projeto(projnumero: int, alteracao: ProjetoAlteracao, s: S) -> Projeto:
-    return s.projetos.atualizar(projnumero, alteracao)
+@app.patch("/projetos/{id}")
+def atualizar_projeto(id: int, alteracao: ProjetoAlteracao, s: S) -> Projeto:
+    return s.projetos.atualizar(id, alteracao)
 
 
-@app.delete("/projetos/{projnumero}", status_code=204)
-def remover_projeto(projnumero: int, s: S) -> None:
-    s.projetos.remover(projnumero)
+@app.delete("/projetos/{id}", status_code=204)
+def remover_projeto(id: int, s: S) -> None:
+    s.projetos.remover(id)
 
 
-@app.get("/projetos/{projnumero}/alocacoes")
-def listar_alocacoes(projnumero: int, s: S) -> list[AlocacaoDetalhe]:
-    return s.alocacoes.por_projeto(projnumero)
+@app.get("/projetos/{id}/alocacoes")
+def listar_alocacoes(id: int, s: S) -> list[AlocacaoDetalhe]:
+    return s.alocacoes.por_projeto(id)
 
 
 # ------------------------------------------------------------------ alocações
@@ -190,9 +226,14 @@ def alocar(nova: AlocacaoNova, s: S) -> AlocacaoNova:
     return nova
 
 
-@app.delete("/alocacoes/{cpf}/{projnumero}", status_code=204)
-def remover_alocacao(cpf: str, projnumero: int, s: S) -> None:
-    s.alocacoes.remover(cpf, projnumero)
+@app.delete("/alocacoes/{funcionario_id}/{projeto_id}", status_code=204)
+def remover_alocacao(funcionario_id: int, projeto_id: int, s: S) -> None:
+    s.alocacoes.remover(por_id(funcionario_id), projeto_id)
+
+
+@app.delete("/alocacoes/cpf/{cpf}/{projeto_id}", status_code=204)
+def remover_alocacao_por_cpf(cpf: str, projeto_id: int, s: S) -> None:
+    s.alocacoes.remover(por_cpf(cpf), projeto_id)
 
 
 # ------------------------------------------------------------------ relatórios
@@ -213,6 +254,23 @@ def relatorio_todos_projetos(s: S) -> list[FuncionarioDepartamento]:
     return s.relatorios.todos_projetos()
 
 
-@app.get("/relatorios/supervisao/{cpf}")
-def relatorio_supervisao(cpf: str, s: S) -> dict:
-    return s.relatorios.supervisao(cpf)
+@app.get("/relatorios/equipes")
+def relatorio_equipes(s: S, max_func: Annotated[int, Query(ge=0)]) -> list[EquipeProjeto]:
+    return s.relatorios.equipes(max_func)
+
+
+@app.get("/relatorios/dependentes")
+def relatorio_dependentes(
+    s: S, min: Annotated[int, Query(ge=0)] = 0
+) -> list[DependentesFuncionario]:
+    return s.relatorios.dependentes(min)
+
+
+@app.get("/relatorios/supervisao/{id}")
+def relatorio_supervisao(id: int, s: S) -> dict:
+    return s.relatorios.supervisao(por_id(id))
+
+
+@app.get("/relatorios/supervisao/cpf/{cpf}")
+def relatorio_supervisao_por_cpf(cpf: str, s: S) -> dict:
+    return s.relatorios.supervisao(por_cpf(cpf))

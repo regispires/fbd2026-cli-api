@@ -1,3 +1,3 @@
-SELECT dnumero, dnome, cpf_gerente, data_inicio_gerente
+SELECT id, dnome, gerente_id, data_inicio_gerente
   FROM departamento
- ORDER BY dnumero
+ ORDER BY id

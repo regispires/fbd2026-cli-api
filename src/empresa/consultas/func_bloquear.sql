@@ -1,5 +1,5 @@
 -- trava a linha do funcionário até o fim da transação
-SELECT cpf
+SELECT id
   FROM funcionario
- WHERE cpf = %(cpf)s
+ WHERE id = %(id)s
    FOR UPDATE
