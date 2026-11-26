@@ -3,7 +3,11 @@
 Aplicação de referência do módulo **Integração entre PostgreSQL e aplicações Python**.
 Gerencia funcionários, departamentos, projetos e alocações do esquema EMPRESA, com
 SQL explícito via Psycopg 3, transações controladas pela aplicação e duas interfaces
-sobre o mesmo núcleo: linha de comando (argparse) e web (FastAPI, opcional).
+sobre o mesmo núcleo: linha de comando (argparse) e web (FastAPI).
+
+O banco pode ser local, na nuvem ou no Docker, e o Docker é opcional: a aplicação só lê as
+variáveis `PG*` do `.env`, e o código é o mesmo nos três casos. Com Docker, o Compose sobe o
+banco e também a aplicação (veja [Onde fica o banco](#onde-fica-o-banco)).
 
 ## Pré-requisitos
 
