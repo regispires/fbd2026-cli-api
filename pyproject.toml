@@ -8,6 +8,7 @@ dependencies = [
     "fastapi[standard]>=0.165.0",
     "psycopg[binary,pool]>=3.3.9",
     "pydantic>=2.14.4",
+    "python-dotenv>=1.0",
 ]
 
 [project.scripts]

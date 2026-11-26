@@ -48,8 +48,8 @@ Psycopg prepara no servidor. Planos gratuitos limitam conexões: mantenha `POOL_
 Com o servidor no ar, crie o esquema e, se quiser, carregue os dados de exemplo:
 
 ```bash
-uv run --env-file .env empresa banco criar     # cria o banco, se preciso, e o esquema
-uv run --env-file .env empresa banco povoar    # opcional: dados de exemplo do livro
+uv run empresa banco criar     # cria o banco, se preciso, e o esquema
+uv run empresa banco povoar    # opcional: dados de exemplo do livro
 ```
 
 Cada comando roda numa única transação: ou tudo é aplicado, ou nada muda. O `criar` só cria o
@@ -92,46 +92,47 @@ banco junto com o volume, use `docker compose down -v`.
 
 ## Execução pela linha de comando
 
-Todos os comandos recebem as variáveis do `.env` com `--env-file`. Para não repetir a opção,
-defina `UV_ENV_FILE=.env` na sessão do terminal.
+A aplicação carrega sozinha o `.env` da pasta atual (com python-dotenv). Variáveis já definidas
+no ambiente têm prioridade sobre o arquivo, então também é possível usar outro arquivo com
+`uv run --env-file outro.env empresa ...`.
 
 ```bash
-uv run --env-file .env empresa --help
+uv run empresa --help
 ```
 
 Funcionários (CRUD, filtros e paginação no banco). Todo comando que aponta para um funcionário
 aceita `--id` ou `--cpf`, um dos dois:
 
 ```bash
-uv run --env-file .env empresa funcionario listar --dep 5 --nome silva --salario-min 30000 --limite 20 --pagina 1
-uv run --env-file .env empresa funcionario obter --id 2
-uv run --env-file .env empresa funcionario obter --cpf 333.445.555-87
-uv run --env-file .env empresa funcionario criar --cpf 529.982.247-25 --pnome Ana --unome Lima --salario "4.200,50" --dep 5 --sexo F --supervisor-cpf 33344555587
-uv run --env-file .env empresa funcionario atualizar --id 9 --salario 4500 --endereco "Rua A, 10"
-uv run --env-file .env empresa funcionario remover --cpf 52998224725
+uv run empresa funcionario listar --dep 5 --nome silva --salario-min 30000 --limite 20 --pagina 1
+uv run empresa funcionario obter --id 2
+uv run empresa funcionario obter --cpf 333.445.555-87
+uv run empresa funcionario criar --cpf 529.982.247-25 --pnome Ana --unome Lima --salario "4.200,50" --dep 5 --sexo F --supervisor-cpf 33344555587
+uv run empresa funcionario atualizar --id 9 --salario 4500 --endereco "Rua A, 10"
+uv run empresa funcionario remover --cpf 52998224725
 ```
 
 Departamentos e projetos são identificados pelo `id` gerado pelo banco:
 
 ```bash
-uv run --env-file .env empresa departamento listar
-uv run --env-file .env empresa departamento criar --nome Logística
-uv run --env-file .env empresa departamento renomear 7 --nome Suprimentos
-uv run --env-file .env empresa departamento trocar-gerente 4 --cpf 99988777767
-uv run --env-file .env empresa departamento trocar-gerente 4 --funcionario-id 3
-uv run --env-file .env empresa projeto criar --nome ProdutoW --local Fortaleza --dep 5
-uv run --env-file .env empresa projeto atualizar 41 --local Quixadá
-uv run --env-file .env empresa projeto listar --dep 5
+uv run empresa departamento listar
+uv run empresa departamento criar --nome Logística
+uv run empresa departamento renomear 7 --nome Suprimentos
+uv run empresa departamento trocar-gerente 4 --cpf 99988777767
+uv run empresa departamento trocar-gerente 4 --funcionario-id 3
+uv run empresa projeto criar --nome ProdutoW --local Fortaleza --dep 5
+uv run empresa projeto atualizar 41 --local Quixadá
+uv run empresa projeto listar --dep 5
 ```
 
 Alocações (operações transacionais):
 
 ```bash
-uv run --env-file .env empresa alocacao criar --cpf 98765432168 --projeto 10 --horas 5
-uv run --env-file .env empresa alocacao criar --funcionario-id 4 --projeto 10 --horas 5
-uv run --env-file .env empresa alocacao equipe --projeto 1 --arquivo equipe.csv
-uv run --env-file .env empresa alocacao listar --projeto 10
-uv run --env-file .env empresa alocacao remover --funcionario-id 4 --projeto 10
+uv run empresa alocacao criar --cpf 98765432168 --projeto 10 --horas 5
+uv run empresa alocacao criar --funcionario-id 4 --projeto 10 --horas 5
+uv run empresa alocacao equipe --projeto 1 --arquivo equipe.csv
+uv run empresa alocacao listar --projeto 10
+uv run empresa alocacao remover --funcionario-id 4 --projeto 10
 ```
 
 O arquivo da equipe é um CSV com `;` e cabeçalho `cpf;horas` ou `id;horas`, por exemplo:
@@ -145,13 +146,13 @@ cpf;horas
 Relatórios (consultas de negócio):
 
 ```bash
-uv run --env-file .env empresa relatorio departamentos
-uv run --env-file .env empresa relatorio ranking --dep 4 5
-uv run --env-file .env empresa relatorio todos-projetos
-uv run --env-file .env empresa relatorio equipes --max-func 2
-uv run --env-file .env empresa relatorio dependentes --min 0
-uv run --env-file .env empresa relatorio supervisao --cpf 88866555576
-uv run --env-file .env empresa relatorio exportar funcionarios.csv
+uv run empresa relatorio departamentos
+uv run empresa relatorio ranking --dep 4 5
+uv run empresa relatorio todos-projetos
+uv run empresa relatorio equipes --max-func 2
+uv run empresa relatorio dependentes --min 0
+uv run empresa relatorio supervisao --cpf 88866555576
+uv run empresa relatorio exportar funcionarios.csv
 ```
 
 A opção global `--json` troca a tabela por JSON: `empresa --json departamento listar`.
@@ -162,10 +163,10 @@ Códigos de saída: `0` sucesso, `1` erro de validação ou de regra, `2` uso in
 Exemplo de saída esperada:
 
 ```text
-$ uv run --env-file .env empresa alocacao criar --cpf 12345678966 --projeto 3 --horas 1
+$ uv run empresa alocacao criar --cpf 12345678966 --projeto 3 --horas 1
 Erro: Carga semanal do funcionário (CPF 12345678966) passaria de 40 h (atual: 40.0 h)
 
-$ uv run --env-file .env empresa relatorio supervisao --id 8
+$ uv run empresa relatorio supervisao --id 8
 Jorge Brito (id 8, CPF 88866555576)
 ├── Fernando Wong (id 2, CPF 33344555587)
 │   ├── Joice Leite (id 6, CPF 45345345376)
@@ -179,7 +180,7 @@ Jorge Brito (id 8, CPF 88866555576)
 ## Execução pela web (opcional)
 
 ```bash
-uv run --env-file .env fastapi dev src/empresa/api.py
+uv run fastapi dev src/empresa/api.py
 ```
 
 O `fastapi dev` recarrega o código a cada alteração. No Docker, a API já sobe com o serviço `app`
@@ -211,7 +212,7 @@ Erros de domínio viram status HTTP (404 não encontrado, 409 duplicidade ou ref
 ## Testes
 
 ```bash
-uv run --env-file .env pytest
+uv run pytest
 uv run ruff check .
 ```
 
@@ -254,7 +255,7 @@ fbd2026-cli-api/
 | Requisito | Onde |
 |---|---|
 | Conexão ao PostgreSQL | `db.py` (pool) e `config.py` |
-| Configuração externa | variáveis `PG*` no `.env`, carregadas com `uv run --env-file` |
+| Configuração externa | variáveis `PG*` no `.env`, carregadas por `load_dotenv` sem sobrescrever o ambiente |
 | CRUD de três recursos | funcionário, departamento e projeto (`servicos/`, `repositorios/`) |
 | Validação de entradas | modelos Pydantic em `dto.py` e funções de `validacao.py` |
 | Consultas de negócio | `consultas/rel_*.sql`: resumo por departamento, ranking salarial, divisão relacional, supervisão recursiva, projetos com equipe pequena, funcionários por número de dependentes |
@@ -305,8 +306,8 @@ fora do livro: o departamento 6 (Expansão), sem funcionários, projetos nem loc
 40 (Portal do Cliente), sem ninguém alocado. Compare, por exemplo:
 
 ```bash
-uv run --env-file .env empresa relatorio equipes --max-func 2   # Portal do Cliente aparece com 0
-uv run --env-file .env empresa relatorio departamentos          # Expansão aparece com zeros
+uv run empresa relatorio equipes --max-func 2   # Portal do Cliente aparece com 0
+uv run empresa relatorio departamentos          # Expansão aparece com zeros
 ```
 
 Nas duas consultas novas, `count(coluna_do_lado_opcional)` dá 0 para quem não tem par, enquanto

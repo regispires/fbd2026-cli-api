@@ -6,7 +6,7 @@ dados de exemplo antes de cada teste de serviço (`empresa banco povoar
 --limpar`) e remove o banco ao final. O usuário precisa poder criar bancos
 (o usuário do docker compose pode).
 
-    uv run --env-file .env pytest
+    uv run pytest
 """
 
 import os

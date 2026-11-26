@@ -86,3 +86,34 @@ def test_prepare_threshold(monkeypatch, valor, esperado):
 
     monkeypatch.setenv("PREPARE_THRESHOLD", valor)
     assert carregar().prepare_threshold == esperado
+
+
+ENV_ARQUIVO = "PGHOST=host-do-arquivo\nPGDATABASE=db-do-arquivo\nPGUSER=user-do-arquivo\n"
+VARIAVEIS = ("PGHOST", "PGDATABASE", "PGUSER")
+
+
+def test_carregar_le_o_env_da_pasta_atual(tmp_path, monkeypatch):
+    import os
+
+    from empresa.config import carregar
+
+    (tmp_path / ".env").write_text(ENV_ARQUIVO, encoding="utf-8")
+    for v in VARIAVEIS:
+        monkeypatch.setenv(v, "provisorio")  # registra o valor original para restaurar
+        monkeypatch.delenv(v)
+    monkeypatch.chdir(tmp_path)
+    carregar()
+    assert os.environ["PGHOST"] == "host-do-arquivo"
+
+
+def test_ambiente_tem_prioridade_sobre_o_arquivo(tmp_path, monkeypatch):
+    import os
+
+    from empresa.config import carregar
+
+    (tmp_path / ".env").write_text(ENV_ARQUIVO, encoding="utf-8")
+    for v in VARIAVEIS:
+        monkeypatch.setenv(v, "do-ambiente")
+    monkeypatch.chdir(tmp_path)
+    carregar()
+    assert os.environ["PGHOST"] == "do-ambiente"

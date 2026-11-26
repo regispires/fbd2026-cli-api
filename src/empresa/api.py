@@ -2,7 +2,7 @@
 
 Execução em desenvolvimento:
 
-    uv run --env-file .env fastapi dev src/empresa/api.py
+    uv run fastapi dev src/empresa/api.py
 
 As rotas são `def` síncronas: o FastAPI as executa em threads e o Psycopg
 síncrono funciona sem mudança. Documentação interativa em /docs.
