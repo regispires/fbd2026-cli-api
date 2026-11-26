@@ -1,4 +1,10 @@
-# compose.yaml
+# compose.yaml: banco e aplicação.
+# O Docker é opcional: o banco também pode ser local ou na nuvem, e a aplicação
+# pode rodar na máquina com `uv run` (veja o README).
+#
+#   docker compose up -d                          # banco e aplicação
+#   docker compose up -d db                       # só o banco
+#   docker compose exec app empresa banco criar   # CLI dentro do contêiner
 services:
   db:
     image: postgres:17
@@ -7,13 +13,26 @@ services:
       POSTGRES_USER: ${PGUSER}
       POSTGRES_PASSWORD: ${PGPASSWORD}
     ports:
-      - "${PGPORT:-5432}:5432"
+      - "${PGPORT:-5432}:5432"  # para a aplicação que roda na máquina
     volumes:
       - pgdata:/var/lib/postgresql/data
-      - ./sql:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}
       interval: 5s
       retries: 10
+
+  # a API fica no ar na porta 8000; a CLI roda no mesmo contêiner com `exec`
+  app:
+    build: .
+    env_file: .env
+    environment:
+      PGHOST: db  # dentro do Compose, o banco é achado pelo nome do serviço
+      PGPORT: "5432"  # a porta interna do contêiner, não a publicada
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy  # espera o banco aceitar conexões
+
 volumes:
   pgdata:

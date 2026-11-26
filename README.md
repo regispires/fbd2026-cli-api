@@ -9,7 +9,7 @@ sobre o mesmo núcleo: linha de comando (argparse) e web (FastAPI, opcional).
 
 - [uv](https://docs.astral.sh/uv/): gerencia o projeto, as dependências e o Python.
   Se o Python 3.12 (de `.python-version`) não estiver instalado, o uv o baixa.
-- Docker com Docker Compose, ou um PostgreSQL 14 ou superior já instalado.
+- Um servidor PostgreSQL 14 ou superior: local, na nuvem ou no Docker. O Docker é opcional.
 
 ## Instalação
 
@@ -20,25 +20,71 @@ uv sync --locked
 cp .env.example .env
 ```
 
-Edite o `.env` e troque a senha. O mesmo arquivo serve ao Docker Compose e à aplicação.
+Edite o `.env` com os dados do seu servidor e troque a senha. O mesmo arquivo serve à aplicação
+e ao Docker Compose.
 
-## Banco de dados
+## Onde fica o banco
 
-Com Docker Compose (os scripts de `sql/` rodam na primeira criação do volume, em ordem):
+A aplicação usa o servidor indicado pelas variáveis `PG*` do `.env`, então o código é o mesmo em
+qualquer modo. O `.env.example` traz um bloco para cada caso.
+
+| Modo | Banco | Aplicação | Como subir o banco |
+|---|---|---|---|
+| Local | PostgreSQL instalado na máquina | `uv run` | já está no ar |
+| Nuvem | Neon, Supabase, RDS etc. | `uv run` | já está no ar; use `PGSSLMODE=require` |
+| Docker, só o banco | contêiner `db` | `uv run` | `docker compose up -d db` |
+| Docker, tudo | contêiner `db` | contêiner `app` | `docker compose up -d` |
+
+Na nuvem, prefira a conexão direta. Se usar um pooler em modo transação, ponha
+`PREPARE_THRESHOLD=off` no `.env`, porque esse tipo de pooler não convive com os comandos que o
+Psycopg prepara no servidor. Planos gratuitos limitam conexões: mantenha `POOL_MAX` baixo.
+
+## Criação do esquema e dados de exemplo
+
+Com o servidor no ar, crie o esquema e, se quiser, carregue os dados de exemplo:
 
 ```bash
-docker compose up -d --wait
+uv run --env-file .env empresa banco criar     # cria o banco, se preciso, e o esquema
+uv run --env-file .env empresa banco povoar    # opcional: dados de exemplo do livro
 ```
 
-Sem Docker, num PostgreSQL existente:
+Cada comando roda numa única transação: ou tudo é aplicado, ou nada muda. O `criar` só cria o
+banco se ele não existir, e isso fica fora da transação, porque `CREATE DATABASE` não pode rodar
+dentro de uma. Na nuvem, o banco normalmente já existe. Os comandos se recusam a sobrescrever o
+que já existe:
+
+| Comando | Quando usar |
+|---|---|
+| `empresa banco criar --recriar` | apagar tabelas e visões e criá-las de novo (os dados se perdem) |
+| `empresa banco povoar --limpar` | trocar os dados atuais pelos de exemplo, com os ids reiniciados |
+
+Antes do `criar`, a CLI e a API respondem que o esquema não existe (a API, com status 503). Os
+scripts ficam em `src/empresa/sql/`. Também é possível aplicá-los direto no psql, cada um numa
+transação, com `psql -1 -f src/empresa/sql/01_esquema.sql` e assim por diante.
+
+## Tudo no Docker
+
+O `compose.yaml` compõe dois serviços. O `db` é o PostgreSQL, com volume e verificação de saúde.
+O `app` é a aplicação, construída pelo `Dockerfile` com o `uv.lock`: sobe a API na porta 8000 e
+traz também a CLI.
 
 ```bash
-psql -d empresa -f sql/01_esquema.sql
-psql -d empresa -f sql/02_visoes.sql
-psql -d empresa -f sql/03_dados_exemplo.sql
+docker compose up -d                              # banco e aplicação
+docker compose exec app empresa banco criar       # a CLI roda dentro do contêiner da aplicação
+docker compose exec app empresa banco povoar      # opcional
 ```
 
-Para recriar o banco do zero com Compose: `docker compose down -v` e depois `docker compose up -d --wait`.
+A API fica em <http://localhost:8000/docs>. Alguns pontos que o Compose resolve:
+
+- **Ordem de inicialização:** o `app` só sobe depois que o `db` aceita conexões
+  (`depends_on` com `condition: service_healthy`).
+- **Rede interna:** dentro do Compose, a aplicação acha o banco pelo nome do serviço. O `.env`
+  continua com `PGHOST=localhost`, para quem roda a aplicação na máquina, e o `compose.yaml`
+  troca para `PGHOST=db` só no contêiner.
+- **Portas publicadas:** a 5432 do banco e a 8000 da API ficam acessíveis na máquina.
+
+Depois de mudar o código, reconstrua a imagem com `docker compose up -d --build`. Para apagar o
+banco junto com o volume, use `docker compose down -v`.
 
 ## Execução pela linha de comando
 
@@ -132,7 +178,8 @@ Jorge Brito (id 8, CPF 88866555576)
 uv run --env-file .env fastapi dev src/empresa/api.py
 ```
 
-A documentação interativa fica em <http://127.0.0.1:8000/docs>. Principais rotas:
+O `fastapi dev` recarrega o código a cada alteração. No Docker, a API já sobe com o serviço `app`
+(veja Tudo no Docker). A documentação interativa fica em <http://127.0.0.1:8000/docs>. Principais rotas:
 
 | Método e rota | Operação |
 |---|---|
@@ -176,11 +223,9 @@ fbd2026-cli-api/
 ├── pyproject.toml           # dependências e o comando empresa
 ├── uv.lock                  # versões exatas, versionado
 ├── .python-version          # versão do Python usada pelo uv
-├── compose.yaml  .env.example  README.md
-├── sql/
-│   ├── 01_esquema.sql       # tabelas, restrições nomeadas, índices
-│   ├── 02_visoes.sql        # vw_funcionario_depto, vw_resumo_departamento
-│   └── 03_dados_exemplo.sql
+├── compose.yaml             # serviços db e app (Docker opcional)
+├── Dockerfile  .dockerignore   # imagem da aplicação, com uv
+├── .env.example  README.md
 ├── src/empresa/
 │   ├── cli.py               # interface de linha de comando
 │   ├── api.py               # interface web (FastAPI, opcional)
@@ -189,13 +234,15 @@ fbd2026-cli-api/
 │   ├── validacao.py         # CPF, decimal com vírgula, curingas do LIKE
 │   ├── erros.py             # exceções de domínio e tradução dos erros do banco
 │   ├── mensagens.py         # erros de validação em português
+│   ├── banco.py             # criação do banco e do esquema, carga dos dados
+│   ├── sql/                 # 01_esquema, 02_visoes, 03_dados_exemplo, remover, limpar_dados
 │   ├── consultas/           # arquivos .sql e sql_de()
 │   ├── repositorios/        # SQL e mapeamento: funcionario, departamento, projeto, ...
 │   └── servicos/            # regras de negócio e transações
 └── tests/
     ├── conftest.py          # banco de teste, dados recarregados, transação revertida
     ├── test_validacao.py  test_repositorios.py  test_servicos.py
-    └── test_api.py  test_cli.py
+    └── test_banco.py  test_api.py  test_cli.py
 ```
 
 ## Requisitos da etapa final atendidos
@@ -221,6 +268,9 @@ fbd2026-cli-api/
 - **SQL explícito, sem ORM.** As consultas ficam em `src/empresa/consultas/*.sql`, testáveis no psql.
 - **Três camadas.** A apresentação (CLI ou API) monta modelos e chama serviços; os serviços abrem
   a transação e aplicam as regras; os repositórios só executam SQL e mapeiam linhas.
+- **Banco em qualquer lugar, Docker opcional.** A configuração vem só das variáveis `PG*`, e o
+  esquema é sempre criado por `empresa banco criar`, em qualquer modo. O Compose não cria o
+  esquema sozinho, para que criação e carga continuem passos explícitos.
 - **Pydantic só na entrada.** As saídas são dataclasses preenchidas por `class_row`, sem revalidar
   o que o banco já garante.
 - **Chaves substitutas.** As tabelas principais (`funcionario`, `departamento`, `projeto`,

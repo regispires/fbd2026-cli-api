@@ -15,6 +15,7 @@ from contextlib import asynccontextmanager
 from decimal import Decimal
 from typing import Annotated
 
+import psycopg
 from fastapi import Depends, FastAPI, Query, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
@@ -42,6 +43,7 @@ from empresa.dto import (
     ResumoDepartamento,
 )
 from empresa.erros import (
+    ESQUEMA_AUSENTE,
     DadosInvalidos,
     Duplicidade,
     ErroDominio,
@@ -93,6 +95,12 @@ STATUS = {
 def erro_dominio(request: Request, e: ErroDominio):
     status = STATUS.get(type(e), 400)
     return JSONResponse({"erros": [str(e)]}, status_code=status)
+
+
+@app.exception_handler(psycopg.errors.UndefinedTable)
+def esquema_ausente(request: Request, e: psycopg.errors.UndefinedTable):
+    # a API subiu antes de `empresa banco criar`
+    return JSONResponse({"erros": [ESQUEMA_AUSENTE]}, status_code=503)
 
 
 @app.exception_handler(RequestValidationError)

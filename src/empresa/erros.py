@@ -24,7 +24,7 @@ class NaoEncontrado(ErroDominio):
         self.recurso, self.chave = recurso, chave
 
 
-# chave: nome da restrição no DDL (sql/01_esquema.sql)
+# chave: nome da restrição no DDL (empresa/sql/01_esquema.sql)
 MENSAGENS = {
     "uq_func_cpf": "Já existe funcionário com este CPF",
     "ck_func_cpf": "CPF deve ter 11 dígitos",
@@ -43,6 +43,10 @@ MENSAGENS = {
     "ck_te_horas": "Horas devem ser maiores que zero",
     "uq_dependente": "Funcionário já tem dependente com este nome",
 }
+
+
+# psycopg.errors.UndefinedTable antes de `empresa banco criar`
+ESQUEMA_AUSENTE = "O banco não tem o esquema da aplicação; rode: empresa banco criar"
 
 
 def traduzir(e: errors.Error) -> ErroDominio:

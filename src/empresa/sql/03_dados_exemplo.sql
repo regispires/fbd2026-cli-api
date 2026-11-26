@@ -12,8 +12,9 @@
 -- externas (LEFT JOIN) tenham o que mostrar: o departamento 6 (Expansão), sem
 -- funcionários, projetos nem localização, e o projeto 40 (Portal do Cliente),
 -- sem ninguém alocado.
-
-BEGIN;
+--
+-- O script não abre transação: `empresa banco povoar` o executa numa única
+-- transação (tudo ou nada). No psql, use `psql -1 -f` para o mesmo efeito.
 
 INSERT INTO departamento (id, dnome) OVERRIDING SYSTEM VALUE VALUES
   (1, 'Matriz'), (4, 'Administração'), (5, 'Pesquisa'),
@@ -96,5 +97,3 @@ SELECT f.id, v.nome, v.sexo, v.nascimento::date, v.parentesco
                ('12345678966', 'Elizabeth', 'F', '1967-05-05', 'Esposa'))
        AS v(cpf, nome, sexo, nascimento, parentesco)
   JOIN funcionario f ON f.cpf = v.cpf;
-
-COMMIT;

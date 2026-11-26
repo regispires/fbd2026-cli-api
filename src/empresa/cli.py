@@ -12,6 +12,7 @@ import argparse
 import csv
 import json
 import logging
+import os
 import sys
 from dataclasses import asdict, fields, is_dataclass
 from datetime import date
@@ -22,6 +23,8 @@ import psycopg
 from psycopg_pool import PoolTimeout
 from pydantic import ValidationError
 
+from empresa import banco
+from empresa.config import carregar
 from empresa.db import criar_pool
 from empresa.dto import (
     AlocacaoNova,
@@ -34,7 +37,7 @@ from empresa.dto import (
     ProjetoNovo,
     ResultadoEquipe,
 )
-from empresa.erros import ErroDominio
+from empresa.erros import ESQUEMA_AUSENTE, ErroDominio
 from empresa.mensagens import mensagens
 from empresa.servicos import Servicos
 from empresa.validacao import normalizar_decimal
@@ -99,6 +102,21 @@ def exibir(res, como_json: bool) -> None:
     elif is_dataclass(res):
         for f in fields(res):
             print(f"{f.name:<20} {formatar(getattr(res, f.name))}")
+
+
+# ------------------------------------------------------------------ banco
+def banco_criar(_, a) -> str:
+    cfg = carregar()
+    nome = os.environ["PGDATABASE"]
+    criado = banco.criar_banco(cfg.conninfo, nome)
+    banco.criar_esquema(cfg.conninfo, recriar=a.recriar)
+    inicio = f"Banco {nome} criado. " if criado else ""
+    return inicio + "Esquema e visões criados."
+
+
+def banco_povoar(_, a) -> str:
+    total = banco.povoar(carregar().conninfo, limpar=a.limpar)
+    return f"Dados de exemplo carregados ({total} funcionários)."
 
 
 # ------------------------------------------------------------------ argumentos
@@ -233,6 +251,15 @@ def construir_parser() -> argparse.ArgumentParser:
         c = grupo.add_parser(nome, help=ajuda)
         c.set_defaults(func=func)
         return c
+
+    # banco: não usa o pool, porque o banco pode ainda não existir
+    g = acoes("banco", "criação do banco e dados de exemplo")
+    c = cmd(g, "criar", "cria o banco, se preciso, e o esquema (uma transação)", banco_criar)
+    c.add_argument("--recriar", action="store_true", help="apaga e recria tabelas e visões")
+    c.set_defaults(sem_pool=True)
+    c = cmd(g, "povoar", "carrega os dados de exemplo (uma transação)", banco_povoar)
+    c.add_argument("--limpar", action="store_true", help="apaga os dados existentes antes")
+    c.set_defaults(sem_pool=True)
 
     # funcionario
     g = acoes("funcionario", "CRUD de funcionários")
@@ -380,12 +407,17 @@ def main(argv: list[str] | None = None) -> None:
     # na CLI, as tentativas de reconexão do pool não precisam aparecer no terminal
     logging.getLogger("psycopg.pool").setLevel(logging.CRITICAL)
     try:
-        servicos = Servicos(criar_pool(min_size=1, espera=5))
-        exibir(a.func(servicos, a), a.json)
+        if getattr(a, "sem_pool", False):
+            exibir(a.func(None, a), a.json)
+        else:
+            servicos = Servicos(criar_pool(min_size=1, espera=5))
+            exibir(a.func(servicos, a), a.json)
     except ValidationError as e:
         sys.exit("\n".join(["Dados inválidos:"] + mensagens(e.errors())))
     except ErroDominio as e:
         sys.exit("Erro: " + str(e))
+    except psycopg.errors.UndefinedTable:
+        sys.exit("Erro: " + ESQUEMA_AUSENTE)
     except (PoolTimeout, psycopg.OperationalError) as e:
         print("Erro: banco de dados indisponível:", e, file=sys.stderr)
         sys.exit(3)

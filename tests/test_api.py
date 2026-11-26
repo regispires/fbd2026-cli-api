@@ -109,3 +109,11 @@ def test_relatorio_equipes_exige_parametro(cliente):
 def test_relatorio_dependentes(cliente):
     r = cliente.get("/relatorios/dependentes", params={"min": 3})
     assert [d["nome"] for d in r.json()] == ["Fernando T Wong", "João B Silva"]
+
+
+def test_esquema_ausente_retorna_503(banco_descartavel, monkeypatch):
+    monkeypatch.setenv("PGDATABASE", banco_descartavel())  # banco vazio
+    with TestClient(app) as c:
+        r = c.get("/departamentos")
+    assert r.status_code == 503
+    assert "empresa banco criar" in r.json()["erros"][0]

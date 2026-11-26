@@ -60,3 +60,21 @@ def test_uso_incorreto_sai_com_codigo_2(argv):
     with pytest.raises(SystemExit) as exc:
         main(argv)
     assert exc.value.code == 2
+
+
+def test_banco_criar_existente_pede_recriar(banco_teste):
+    with pytest.raises(SystemExit) as exc:
+        main(["banco", "criar"])
+    assert "--recriar" in str(exc.value.code)
+
+
+def test_banco_povoar_com_limpar(banco_teste, capsys):
+    main(["banco", "povoar", "--limpar"])
+    assert "8 funcionários" in capsys.readouterr().out
+
+
+def test_esquema_ausente_orienta_criar(banco_descartavel, monkeypatch):
+    monkeypatch.setenv("PGDATABASE", banco_descartavel())  # banco vazio
+    with pytest.raises(SystemExit) as exc:
+        main(["departamento", "listar"])
+    assert "empresa banco criar" in str(exc.value.code)

@@ -2,6 +2,9 @@
 -- Chaves primárias substitutas (id IDENTITY) nas entidades principais; as chaves
 -- naturais continuam como UNIQUE NOT NULL. Restrições nomeadas: a aplicação
 -- traduz cada violação em mensagem de domínio.
+--
+-- `empresa banco criar` executa este script e o 02_visoes.sql numa única
+-- transação: o DDL do PostgreSQL é transacional, então uma falha desfaz tudo.
 
 CREATE TABLE departamento (
   id                  BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,

@@ -78,3 +78,11 @@ def test_referencia_exige_exatamente_um(dados):
 def test_alteracao_parcial_traz_so_o_informado():
     alt = FuncionarioAlteracao(salario="4500")
     assert alt.model_dump(exclude_unset=True) == {"salario": Decimal("4500")}
+
+
+@pytest.mark.parametrize(("valor", "esperado"), [("off", None), ("OFF", None), ("3", 3)])
+def test_prepare_threshold(monkeypatch, valor, esperado):
+    from empresa.config import carregar
+
+    monkeypatch.setenv("PREPARE_THRESHOLD", valor)
+    assert carregar().prepare_threshold == esperado

@@ -16,6 +16,7 @@ def criar_pool(min_size: int = 2, espera: float = 10) -> ConnectionPool:
         max_idle=300,  # segundos ociosa antes de fechar
         timeout=10,  # espera máxima por conexão livre
         check=ConnectionPool.check_connection,
+        kwargs={"prepare_threshold": cfg.prepare_threshold},
         open=False,
     )
     pool.open(wait=True, timeout=espera)  # falha cedo se o banco não responder
