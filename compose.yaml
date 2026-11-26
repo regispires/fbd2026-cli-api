@@ -1,6 +1,6 @@
 # compose.yaml: banco e aplicação.
-# O Docker é opcional: o banco também pode ser local ou na nuvem, e a aplicação
-# pode rodar na máquina com `uv run` (veja o README).
+# O banco também pode ser local ou na nuvem, e a aplicação também pode rodar
+# na máquina com `uv run` (veja o README).
 #
 #   docker compose up -d                          # banco e aplicação
 #   docker compose up -d db                       # só o banco

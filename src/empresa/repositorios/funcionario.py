@@ -50,7 +50,7 @@ class FuncionarioRepositorio:
         limite: int = 20,
         offset: int = 0,
     ) -> list[FuncionarioResumo]:
-        """Filtros opcionais compostos com sql.SQL; valores sempre como parâmetros."""
+        """Cada filtro informado vira uma condição composta com sql.SQL; valores como parâmetros."""
         conds = []
         p = {"lim": limite, "off": offset}
         if departamento_id is not None:

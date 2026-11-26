@@ -136,7 +136,7 @@ def ref(a: argparse.Namespace, attr_id: str = "id", attr_cpf: str = "cpf") -> Fu
     return FuncionarioRef(id=getattr(a, attr_id), cpf=getattr(a, attr_cpf))
 
 
-def ref_opcional(a, attr_id: str, attr_cpf: str) -> FuncionarioRef | None:
+def ref_se_informada(a, attr_id: str, attr_cpf: str) -> FuncionarioRef | None:
     if getattr(a, attr_id) is None and getattr(a, attr_cpf) is None:
         return None
     return ref(a, attr_id, attr_cpf)
@@ -159,7 +159,7 @@ def func_criar(s: Servicos, a):
         datanasc=a.datanasc,
         endereco=a.endereco,
         sexo=a.sexo,
-        supervisor=ref_opcional(a, "supervisor_id", "supervisor_cpf"),
+        supervisor=ref_se_informada(a, "supervisor_id", "supervisor_cpf"),
     )
     return s.funcionarios.criar(novo)
 
@@ -168,7 +168,7 @@ def func_atualizar(s: Servicos, a):
     if a.salario is not None:
         a.salario = normalizar_decimal(a.salario)
     campos = informados(a, {"endereco": "endereco", "salario": "salario", "dep": "departamento_id"})
-    sup = ref_opcional(a, "supervisor_id", "supervisor_cpf")
+    sup = ref_se_informada(a, "supervisor_id", "supervisor_cpf")
     if sup is not None:
         campos["supervisor"] = sup
     return s.funcionarios.atualizar(ref(a), FuncionarioAlteracao(**campos))

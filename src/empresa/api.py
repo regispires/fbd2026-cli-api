@@ -1,4 +1,4 @@
-"""Interface web (FastAPI), opcional, sobre os mesmos serviços da CLI.
+"""Interface web (FastAPI) sobre os mesmos serviços da CLI.
 
 Execução em desenvolvimento:
 

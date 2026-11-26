@@ -5,7 +5,7 @@ Gerencia funcionários, departamentos, projetos e alocações do esquema EMPRESA
 SQL explícito via Psycopg 3, transações controladas pela aplicação e duas interfaces
 sobre o mesmo núcleo: linha de comando (argparse) e web (FastAPI).
 
-O banco pode ser local, na nuvem ou no Docker, e o Docker é opcional: a aplicação só lê as
+O banco pode ser local, na nuvem ou no Docker: a aplicação só lê as
 variáveis `PG*` do `.env`, e o código é o mesmo nos três casos. Com Docker, o Compose sobe o
 banco e também a aplicação (veja [Onde fica o banco](#onde-fica-o-banco)).
 
@@ -13,7 +13,7 @@ banco e também a aplicação (veja [Onde fica o banco](#onde-fica-o-banco)).
 
 - [uv](https://docs.astral.sh/uv/): gerencia o projeto, as dependências e o Python.
   Se o Python 3.12 (de `.python-version`) não estiver instalado, o uv o baixa.
-- Um servidor PostgreSQL 14 ou superior: local, na nuvem ou no Docker. O Docker é opcional.
+- Um servidor PostgreSQL 14 ou superior: local, na nuvem ou no Docker (com Docker Compose).
 
 ## Instalação
 
@@ -49,7 +49,7 @@ Com o servidor no ar, crie o esquema e, se quiser, carregue os dados de exemplo:
 
 ```bash
 uv run empresa banco criar     # cria o banco, se preciso, e o esquema
-uv run empresa banco povoar    # opcional: dados de exemplo do livro
+uv run empresa banco povoar    # dados de exemplo do livro
 ```
 
 Cada comando roda numa única transação: ou tudo é aplicado, ou nada muda. O `criar` só cria o
@@ -75,7 +75,7 @@ traz também a CLI.
 ```bash
 docker compose up -d                              # banco e aplicação
 docker compose exec app empresa banco criar       # a CLI roda dentro do contêiner da aplicação
-docker compose exec app empresa banco povoar      # opcional
+docker compose exec app empresa banco povoar      # dados de exemplo
 ```
 
 A API fica em <http://localhost:8000/docs>. Alguns pontos que o Compose resolve:
@@ -177,7 +177,7 @@ Jorge Brito (id 8, CPF 88866555576)
     └── André Pereira (id 7, CPF 98798798733)
 ```
 
-## Execução pela web (opcional)
+## Execução pela web
 
 ```bash
 uv run fastapi dev src/empresa/api.py
@@ -228,12 +228,12 @@ fbd2026-cli-api/
 ├── pyproject.toml           # dependências e o comando empresa
 ├── uv.lock                  # versões exatas, versionado
 ├── .python-version          # versão do Python usada pelo uv
-├── compose.yaml             # serviços db e app (Docker opcional)
+├── compose.yaml             # serviços db e app (Docker)
 ├── Dockerfile  .dockerignore   # imagem da aplicação, com uv
 ├── .env.example  README.md
 ├── src/empresa/
 │   ├── cli.py               # interface de linha de comando
-│   ├── api.py               # interface web (FastAPI, opcional)
+│   ├── api.py               # interface web (FastAPI)
 │   ├── config.py  db.py     # configuração do ambiente e pool de conexões
 │   ├── dto.py               # modelos de entrada (Pydantic) e de saída (dataclasses)
 │   ├── validacao.py         # CPF, decimal com vírgula, curingas do LIKE
@@ -273,7 +273,7 @@ fbd2026-cli-api/
 - **SQL explícito, sem ORM.** As consultas ficam em `src/empresa/consultas/*.sql`, testáveis no psql.
 - **Três camadas.** A apresentação (CLI ou API) monta modelos e chama serviços; os serviços abrem
   a transação e aplicam as regras; os repositórios só executam SQL e mapeiam linhas.
-- **Banco em qualquer lugar, Docker opcional.** A configuração vem só das variáveis `PG*`, e o
+- **Banco em qualquer lugar.** A configuração vem só das variáveis `PG*`, e o
   esquema é sempre criado por `empresa banco criar`, em qualquer modo. O Compose não cria o
   esquema sozinho, para que criação e carga continuem passos explícitos.
 - **Pydantic só na entrada.** As saídas são dataclasses preenchidas por `class_row`, sem revalidar
@@ -310,7 +310,7 @@ uv run empresa relatorio equipes --max-func 2   # Portal do Cliente aparece com 
 uv run empresa relatorio departamentos          # Expansão aparece com zeros
 ```
 
-Nas duas consultas novas, `count(coluna_do_lado_opcional)` dá 0 para quem não tem par, enquanto
+Nas duas consultas novas, `count(coluna_da_tabela_da_direita)` dá 0 para quem não tem par, enquanto
 `count(*)` daria 1. O filtro sobre o total vai no `HAVING`, que é aplicado depois do agrupamento;
 no `WHERE` ele não funcionaria, porque o `WHERE` roda antes do `GROUP BY`.
 
